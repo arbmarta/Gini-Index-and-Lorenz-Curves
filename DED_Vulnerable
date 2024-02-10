@@ -1,0 +1,56 @@
+import pandas as pd
+import numpy as np
+
+df = pd.read_csv(
+    r"C:\Users\alexj\Documents\MSc Research\Chapter 3\Gini Index Calculation\Gini Data Tables\Census Based\DAUID_Trees.csv")
+
+# Convert 'Botanical Name' in df to lowercase for case-insensitive comparison
+df['Botanical Name'] = df['Botanical Name'].str.lower()
+
+# List of species to analyze, converted to lowercase
+species_list = ['ulmus', 'Ulmus americana', 'ulmus americana', 'ulmus americana brandon',
+        "ulmus americana 'brandon'", 'ulmus americana by1706',
+        'ulmus americana by1801', 'ulmus americana by1804',
+        'ulmus americana patmore', "ulmus americana 'patmore'",
+        'ulmus americana x by1708', 'ulmus americana x by1709', 'ulmus spp.']
+
+# Filter df to include only rows where 'Botanical Name' matches any name in species_list
+df = df[~df['Botanical Name'].isin(species_list)]
+
+# Define the Gini coefficient function
+def gini(array):
+    array = np.array(array, dtype=float).flatten()  # Ensure array is float and flattened
+    if np.amin(array) < 0:
+        array -= np.amin(array)  # Make values non-negative
+    array += 0.0000001  # Avoid division by zero
+    array = np.sort(array)  # Sort the array
+    index = np.arange(1, array.shape[0] + 1)
+    n = array.shape[0]
+    return ((np.sum((2 * index - n - 1) * array)) / (n * np.sum(array)))
+
+cities = df['Location'].unique()
+
+gini_coefficients_basal_area = {}
+gini_coefficients_tree_count = {}
+
+for city in cities:
+    city_df = df[df['Location'] == city].copy()
+
+    # Ensure your diameter column name matches your dataset
+    city_df['Basal_Area'] = np.pi * ((city_df['Diameter (cm)'] / 100) / 2) ** 2
+    tree_count_by_dauid = city_df.groupby('DAUID').size()
+
+    basal_area_sum_city = city_df.groupby('DAUID')['Basal_Area'].sum().reset_index()
+    merged_df_city = pd.merge(basal_area_sum_city, city_df[['DAUID', 'Area_Ha']].drop_duplicates(), on='DAUID')
+    merged_df_city['Basal_Area_per_Ha'] = merged_df_city['Basal_Area'] / merged_df_city['Area_Ha']
+
+    # Calculate and store the Gini coefficients separately
+    gini_coefficients_basal_area[city] = gini(merged_df_city['Basal_Area_per_Ha'].values)
+    gini_coefficients_tree_count[city] = gini(tree_count_by_dauid.values.astype(float))
+
+# Print the Gini coefficients for each city for basal area and tree count
+for city, gini_coefficient in gini_coefficients_basal_area.items():
+    print(f"The Gini Index for basal area in {city} is: {round(gini_coefficient, 4)}")
+
+for city, gini_coefficient in gini_coefficients_tree_count.items():
+    print(f"The Gini Index based on tree count for {city} is: {round(gini_coefficient, 4)}")
