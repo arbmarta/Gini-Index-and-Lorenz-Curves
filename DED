@@ -5,7 +5,7 @@ df = pd.read_csv(
     r"C:\Users\alexj\Documents\MSc Research\Chapter 3\Gini Index Calculation\Gini Data Tables\Census Based\DAUID_Trees.csv")
 
 # Filter df to include only rows where 'Botanical Name' matches any name in species_list
-df = df[~df['Genus'].str.startswith('Ulmus')]
+df = df[~df['Genus'].isin(['Ulmus', 'ULMUS'])]
 
 # Define the Gini coefficient function
 def gini(array):
