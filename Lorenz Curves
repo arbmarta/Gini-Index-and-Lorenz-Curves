@@ -1,0 +1,97 @@
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+
+# Load your CSV file
+df_csv = pd.read_csv(
+    r"C:\Users\alexj\Documents\MSc Research\Chapter 3\Gini Index Calculation\Gini Data Tables\Census Based\CTUID_Trees.csv")
+
+df = df_csv[df_csv['Location'] == 'Winnipeg']
+
+# Calculate the basal area for each tree in square meters
+df['Basal_Area_m2'] = (3.14159265359 * (df['Diameter (cm)'] / 2) ** 2) / 10000
+
+# Group by the sampling area and sum the basal areas, then reset index to flatten the DataFrame
+grouped_basal_area = df.groupby('CTUID')['Basal_Area_m2'].sum().reset_index()
+merged_df = pd.merge(grouped_basal_area, df[['CTUID', 'Area_Ha']].drop_duplicates(), on='CTUID')
+merged_df['Standardized_Basal_Area'] = merged_df['Basal_Area_m2'] / merged_df['Area_Ha']
+print(merged_df[['CTUID', 'Basal_Area_m2', 'Area_Ha', 'Standardized_Basal_Area']])
+
+# Exclude rows where Genus is 'Ulmus'
+df_filtered_DED = df[~df['Genus'].isin(['Ulmus', 'ULMUS'])]
+
+# Calculate the basal area for each tree in square meters in the filtered DataFrame
+df_filtered_DED['Basal_Area_m2_DED'] = (3.14159265359 * (df_filtered_DED['Diameter (cm)'] / 2) ** 2) / 10000
+grouped_basal_area_DED = df_filtered_DED.groupby('CTUID')['Basal_Area_m2_DED'].sum().reset_index()
+merged_df_DED = pd.merge(grouped_basal_area_DED, df_filtered_DED[['CTUID', 'Area_Ha']].drop_duplicates(), on='CTUID')
+merged_df_DED['Standardized_Basal_Area_DED'] = merged_df_DED['Basal_Area_m2_DED'] / merged_df_DED['Area_Ha']
+print(merged_df_DED[['CTUID', 'Basal_Area_m2_DED', 'Area_Ha', 'Standardized_Basal_Area_DED']])
+
+# List of species to analyze, converted to lowercase
+species_list = ['ulmus', 'Ulmus americana', 'ulmus americana', 'ulmus americana brandon',
+        "ulmus americana 'brandon'", 'ulmus americana by1706',
+        'ulmus americana by1801', 'ulmus americana by1804',
+        'ulmus americana patmore', "ulmus americana 'patmore'",
+        'ulmus americana x by1708', 'ulmus americana x by1709', 'ulmus spp.']
+df_filtered_DED_Sus = df[~df['Botanical Name'].isin(species_list)]
+
+# Calculate the basal area for each tree in square meters in the filtered DataFrame
+df_filtered_DED_Sus['Basal_Area_m2_DED_Sus'] = (3.14159265359 * (df_filtered_DED_Sus['Diameter (cm)'] / 2) ** 2) / 10000
+grouped_basal_area_DED_Sus = df_filtered_DED_Sus.groupby('CTUID')['Basal_Area_m2_DED_Sus'].sum().reset_index()
+merged_df_DED_Sus = pd.merge(grouped_basal_area_DED_Sus, df_filtered_DED_Sus[['CTUID', 'Area_Ha']].drop_duplicates(), on='CTUID')
+merged_df_DED_Sus['Standardized_Basal_Area_DED_Sus'] = merged_df_DED_Sus['Basal_Area_m2_DED_Sus'] / merged_df_DED_Sus['Area_Ha']
+print(merged_df_DED_Sus[['CTUID', 'Basal_Area_m2_DED_Sus', 'Area_Ha', 'Standardized_Basal_Area_DED_Sus']])
+
+# Exclude rows where Genus is 'Fraxinus'
+df_filtered_EAB = df[~df['Genus'].isin(['Fraxinus', 'FRAXINUS'])]
+
+# Calculate the basal area for each tree in square meters in the filtered DataFrame
+df_filtered_EAB['Basal_Area_m2_EAB'] = (3.14159265359 * (df_filtered_EAB['Diameter (cm)'] / 2) ** 2) / 10000
+grouped_basal_area_EAB = df_filtered_EAB.groupby('CTUID')['Basal_Area_m2_EAB'].sum().reset_index()
+merged_df_EAB = pd.merge(grouped_basal_area_EAB, df_filtered_EAB[['CTUID', 'Area_Ha']].drop_duplicates(), on='CTUID')
+merged_df_EAB['Standardized_Basal_Area_EAB'] = merged_df_EAB['Basal_Area_m2_EAB'] / merged_df_EAB['Area_Ha']
+print(merged_df_EAB[['CTUID', 'Basal_Area_m2_EAB', 'Area_Ha', 'Standardized_Basal_Area_EAB']])
+
+# Merge the original DataFrame with the one filtered for DED (Ulmus excluded)
+final_df = pd.merge(merged_df, merged_df_DED[['CTUID', 'Standardized_Basal_Area_DED']], on='CTUID', how='outer')
+final_df = pd.merge(final_df, merged_df_DED_Sus[['CTUID', 'Standardized_Basal_Area_DED_Sus']], on='CTUID', how='outer')
+final_df = pd.merge(final_df, merged_df_EAB[['CTUID', 'Standardized_Basal_Area_EAB']], on='CTUID', how='outer')
+print(final_df)
+
+def calculate_lorenz_curve(data):
+    data = np.sort(data)
+    n = len(data)
+    cumulative_data = np.cumsum(data) / np.sum(data)
+    lorenz_curve = np.insert(cumulative_data, 0, 0)  # Insert (0, 0) for the starting point
+
+    return lorenz_curve
+
+# Extract the data for the three columns of interest
+column_names = ['Standardized_Basal_Area', 'Standardized_Basal_Area_DED', 'Standardized_Basal_Area_DED_Sus', 'Standardized_Basal_Area_EAB']
+column_data = [final_df[column].tolist() for column in column_names]
+
+# Calculate the Lorenz curves for all three columns
+lorenz_curves = [calculate_lorenz_curve(final_df) for final_df in column_data]
+
+# Create a new figure
+plt.figure(figsize=(10, 6))
+
+# Plot the Lorenz curves for all three columns
+colors = ['blue', 'green', 'red', 'orange']
+labels = ["Existing Inequalities", "Post-DED Inequalities", "Post-DED Susceptible Inequalities", "Post-Fraxinus Inequalities"]
+for i, lorenz_curve in enumerate(lorenz_curves):
+    plt.plot(np.linspace(0, 1, len(lorenz_curve)), lorenz_curve, color=colors[i], label=labels[i].replace("_", " "))
+
+# Add the Diagonal Equality Line (DED)
+plt.plot([0, 1], [0, 1], linestyle='--', color='black', label='Perfect Equality')
+
+# Add common elements to the plot
+plt.xlabel("Cumulative Percentage of Population")
+plt.ylabel("Cumulative Percentage of Basal Area")
+plt.title("Lorenz Curves for Basal Area per Hectare")
+plt.grid()
+plt.legend()
+
+# Save the plot as an image
+plt.savefig("Lorenz_Curves_Basal_Area_All_Cities.png")
+plt.show()
